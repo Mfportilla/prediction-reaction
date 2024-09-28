@@ -1,46 +1,50 @@
 // prediction.js
 
-// Import the reaction2prediction function
-const script = document.createElement('script');
-script.src = './reaction.js';
-document.head.appendChild(script);
-
+// the link to your model provided by Teachable Machine export panel
 const URL = "./my_model/";
 
-let model, webcam, labelContainer, maxPredictions;
+async function createModel() {
+    const checkpointURL = URL + "model.json"; // model topology
+    const metadataURL = URL + "metadata.json"; // model metadata
+
+    const recognizer = speechCommands.create(
+        "BROWSER_FFT", // fourier transform type, not useful to change
+        undefined, // speech commands vocabulary feature, not useful for your models
+        checkpointURL,
+        metadataURL);
+
+    // check that model and metadata are loaded via HTTPS requests.
+    await recognizer.ensureModelLoaded();
+
+    return recognizer;
+}
 
 async function init() {
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
-
-    model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
-
-    const flip = true;
-    webcam = new tmImage.Webcam(200, 200, flip);
-    await webcam.setup();
-    await webcam.play();
-    window.requestAnimationFrame(loop);
-
-    document.getElementById("webcam-container").appendChild(webcam.canvas);
-    labelContainer = document.getElementById("label-container");
-    for (let i = 0; i < maxPredictions; i++) {
+    const recognizer = await createModel();
+    const classLabels = recognizer.wordLabels(); // get class labels
+    const labelContainer = document.getElementById("label-container");
+    for (let i = 0; i < classLabels.length; i++) {
         labelContainer.appendChild(document.createElement("div"));
     }
-}
 
-async function loop() {
-    webcam.update();
-    await predict();
-    window.requestAnimationFrame(loop);
-}
+    // listen() takes two arguments:
+    // 1. A callback function that is invoked anytime a word is recognized.
+    // 2. A configuration object with adjustable fields
+    recognizer.listen(result => {
+        const scores = result.scores; // probability of prediction for each class
+        // render the probability scores per class
+        for (let i = 0; i < classLabels.length; i++) {
+            const classPrediction = classLabels[i] + ": " + result.scores[i].toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }, {
+        includeSpectrogram: true, // in case listen should return result.spectrogram
+        probabilityThreshold: 0.75,
+        invokeCallbackOnNoiseAndUnknown: true,
+        overlapFactor: 0.50 // probably want between 0.5 and 0.75. More info in README
+    });
 
-async function predict() {
-    const prediction = await model.predict(webcam.canvas);
-    for (let i = 0; i < maxPredictions; i++) {
-        const classPrediction =
-            prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-        labelContainer.childNodes[i].innerHTML = classPrediction;
-    }
-    reaction2prediction(prediction);
+    // Stop the recognition in 5 seconds.
+    // setTimeout(() => recognizer.stopListening(), 5000);
 }
+</script>
