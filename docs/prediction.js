@@ -1,6 +1,10 @@
 // prediction.js
 
-// the link to your model provided by Teachable Machine export panel
+// Import the reaction2prediction function
+const script = document.createElement('script');
+script.src = './reaction.js';
+document.head.appendChild(script);
+
 const URL = "./my_model/";
 
 async function createModel() {
@@ -47,4 +51,3 @@ async function init() {
     // Stop the recognition in 5 seconds.
     // setTimeout(() => recognizer.stopListening(), 5000);
 }
-</script>
